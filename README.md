@@ -1,2 +1,2 @@
 # schedule-generator
-A schedule generator that allows partially a completed schedule as input
+A schedule generator that allows a partially completed schedule as input
