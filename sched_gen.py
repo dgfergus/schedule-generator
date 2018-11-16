@@ -7,9 +7,9 @@ Created on Sun May 21 10:05:03 2017
 import numpy as np
 import random
 
-class basicsettings:
+class league_settings:
     def __init__(self):
-        self.TeamNames = ['Heros','Jabronies','Truth','Chimps','Beatdoazers','Staffords','Roughnecks','Computerblue']
+        self.team_names = ['Heros','Jabronies','Truth','Chimps','Beatdoazers','Staffords','Roughnecks','Computerblue']
         self.numweeks = 15
         self.rivalweeks = [4,10]
         self.RivalMatchups = [['Heros','Jabronies','Truth','Staffords','Chimps','Roughnecks','Beatdoazers','Computerblue'],
@@ -17,11 +17,34 @@ class basicsettings:
         self.SBrematchWeek = 1 
 
 class fantasyschedule:
+    """
+    Class to generate a fantasy football league schedule
+    
+    Attributes
+    ----------
+    team_names : list
+        List of strings for the team names
+    season_length : int
+        Length of regular season
+    sched : list
+        List of length `season_length`. Each element of the list is a list of the 
+        matchups that week. Matchups are represented by a set of team names.
+        
+    Methods
+    -------
+    weeks_have_duplicate_game(week1,week2):
+        Returns True if the two weeks have a duplicate game, else False.
+        
+    
+    
+    
+    
+    """
     def __init__(self,basicsettings = basicsettings(), SBrematch = ['Truth','Jabronies'], GenFullSched = False):
         if basicsettings is None:
             raise('Must Set Basic Settings')
         else:
-            self.TeamNames = basicsettings.TeamNames
+            self.team_names = basicsettings.team_names
             self.numweeks = basicsettings.numweeks
             self.rivalweeks = basicsettings.rivalweeks
             self.RivalMatchups = basicsettings.RivalMatchups
@@ -33,8 +56,8 @@ class fantasyschedule:
             
     def buildmatchuplist(self):
         matchuplist = []
-        for team1Index,team1 in enumerate(self.TeamNames):
-            for team2Index,team2 in enumerate(self.TeamNames):
+        for team1Index,team1 in enumerate(self.team_names):
+            for team2Index,team2 in enumerate(self.team_names):
                 if team2Index > team1Index:
                     matchuplist.append(list(np.sort([team1,team2])))
         self.matchups = matchuplist
@@ -57,11 +80,11 @@ class fantasyschedule:
             
     def genweek(self,weekstart = None):
         if weekstart is None:
-            remainingTeams = self.TeamNames.copy()
+            remainingTeams = self.team_names.copy()
             week = []
         else:
             week = weekstart.copy()
-            remainingTeams = list(set(self.TeamNames)-set(week))
+            remainingTeams = list(set(self.team_names)-set(week))
         while len(remainingTeams) >0:
             team = random.choice(remainingTeams)
             week.append(team)
@@ -95,11 +118,11 @@ class fantasyschedule:
 
     def genweekfrommatchuplist(self,weekstart = None, printstatus = False):
         if weekstart is None:
-            remainingTeams = self.TeamNames.copy()
+            remainingTeams = self.team_names.copy()
             week = []
         else:
             week = weekstart
-            remainingTeams = list(set(self.TeamNames)-set(week))
+            remainingTeams = list(set(self.team_names)-set(week))
         # sometimes you get stuck choosing the wrong matchups and need to try again
         remainingTeamsIni = remainingTeams.copy()
         weekini = week.copy()
@@ -124,7 +147,7 @@ class fantasyschedule:
                     remainingTeams = list(set(remainingTeams)-set([team1,team2]))
                     week.append(team1)
                     week.append(team2)
-                if len(week) == len(self.TeamNames):
+                if len(week) == len(self.team_names):
                     foundweek = True
             
         return week
@@ -155,8 +178,8 @@ class fantasyschedule:
 
         for matchup in self.remainingmatchuplist:
             team1,team2 = self.matchupstringtoteams(matchup)
-            team1Index = self.TeamNames.index(team1)
-            team2Index = self.TeamNames.index(team2)
+            team1Index = self.team_names.index(team1)
+            team2Index = self.team_names.index(team2)
             matchupavailarray = self.countremainingavailablematchups()
             totalpotentialmatchups = schedmatchuparray[team1Index,team2Index] + matchupavailarray[team1Index,team2Index]
             if (numtripmatch[team1Index] == 1) or (numtripmatch[team2Index] == 1):
@@ -193,7 +216,7 @@ class fantasyschedule:
                     weekout.append(team+' vs. '+week[teamIndex-1])
             print(weekout)
             
-    def hasduplicategame(self,weekList1,weekList2):
+    def weeks_have_duplicate_game(self,weekList1,weekList2):
         DuplicateGame = False
         for MatchUp1 in self.matchupsfromweek(weekList1):
             for MatchUp2 in self.matchupsfromweek(weekList2):
@@ -203,7 +226,7 @@ class fantasyschedule:
     
     def initialremovematchups(self):
         for weekIndex,week in enumerate(self.sched):
-            if len(week) == len(self.TeamNames):
+            if len(week) == len(self.team_names):
                 # remove games from matchuplist
                 self.removeweek(week) 
         return self.remainingmatchuplist
@@ -211,16 +234,16 @@ class fantasyschedule:
     def countcompletedweeks(self):
         count = 0
         for week in self.sched:
-            if len(week) == len(self.TeamNames):
+            if len(week) == len(self.team_names):
                 count += 1
         return count
     
     
-    def addweektosched(self,printstatus = False):
+    def add_week_to_sched(self,printstatus = False):
         # Find first non-finished week
         firstemptyweek = -1
         for weekIndex,week in enumerate(self.sched):
-            if len(week) < len(self.TeamNames): # If the week is not full
+            if len(week) < len(self.team_names): # If the week is not full
                 if firstemptyweek == -1:
                     firstemptyweek = int(weekIndex)
 
@@ -241,8 +264,8 @@ class fantasyschedule:
             if printstatus:
                 print('try '+str(count)+' at generating a random week that works with the schedule:')
                 print(randweek)
-            previoussame = self.hasduplicategame(randweek,previousweek)
-            nextsame = self.hasduplicategame(randweek,nextweek)
+            previoussame = self.weeks_have_duplicate_game(randweek,previousweek)
+            nextsame = self.weeks_have_duplicate_game(randweek,nextweek)
             
             allhavelessthanthreetriplematchups = self.allnumtriplematchupslessthanthree(testweek = randweek)
             
@@ -281,7 +304,7 @@ class fantasyschedule:
             count = 0
             while (completeweeks < len(self.sched)) and count < 20:
                 count += 1
-                self.addweektosched(printstatus = printstatus)
+                self.add_week_to_sched(printstatus = printstatus)
                 completeweeks = self.countcompletedweeks()
             if completeweeks == len(self.sched):
                   iscomplete = True
@@ -292,10 +315,10 @@ class fantasyschedule:
         
     def countmatchupsinschedule(self,testweek = None):
         
-        matchupcountarray = np.zeros([len(self.TeamNames),len(self.TeamNames)],dtype = 'int')
+        matchupcountarray = np.zeros([len(self.team_names),len(self.team_names)],dtype = 'int')
         
-        for teamIndex1, teamname1 in enumerate(self.TeamNames):
-            for teamIndex2, teamname2 in enumerate(self.TeamNames):
+        for teamIndex1, teamname1 in enumerate(self.team_names):
+            for teamIndex2, teamname2 in enumerate(self.team_names):
                 for week in self.sched:
                     for mu in self.matchupsfromweek(week):
                         if set([teamname1,teamname2]) == mu:
@@ -304,8 +327,8 @@ class fantasyschedule:
         if not(testweek is None):
             mups = self.matchupsfromweek(testweek)
             for mu in mups:
-                for teamIndex1, team1name in enumerate(self.TeamNames):
-                    for teamIndex2, team2name in enumerate(self.TeamNames):
+                for teamIndex1, team1name in enumerate(self.team_names):
+                    for teamIndex2, team2name in enumerate(self.team_names):
                         if set([teamname1,teamname2]) == mu:
                             matchupcountarray[teamIndex1,teamIndex2] += 1
                         
@@ -313,21 +336,21 @@ class fantasyschedule:
     
     def countremainingavailablematchups(self,testweek = None):
         
-        matchupcountarray = np.zeros([len(self.TeamNames),len(self.TeamNames)],dtype = 'int')
+        matchupcountarray = np.zeros([len(self.team_names),len(self.team_names)],dtype = 'int')
         
-        for teamIndex, teamname in enumerate(self.TeamNames):
+        for teamIndex, teamname in enumerate(self.team_names):
             for remainmatch in self.remainingmatchuplist:
                 team1,team2 = self.matchupstringtoteams(remainmatch)
                 if teamname in set([team1,team2]):
-                    for otherteamIndex,otherteam in enumerate(self.TeamNames):
+                    for otherteamIndex,otherteam in enumerate(self.team_names):
                         if otherteam in set(set([team1,team2])-set([teamname])):
                             matchupcountarray[teamIndex,otherteamIndex] += 1
                             
         if not(testweek is None):
             mups = self.matchupsfromweek(testweek)
             for mu in mups:
-                for teamIndex1, team1name in enumerate(self.TeamNames):
-                    for teamIndex2, team2name in enumerate(self.TeamNames):
+                for teamIndex1, team1name in enumerate(self.team_names):
+                    for teamIndex2, team2name in enumerate(self.team_names):
                         if team1name in mu:
                             if (team2name in mu) and not(team1name == team2name):
                                 matchupcountarray[teamIndex1,teamIndex2] += -1
