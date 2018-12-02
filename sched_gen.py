@@ -13,6 +13,13 @@ import numpy as np
 class league_settings:
     """
     Class that defines the settings for a league that are relevent for building a schedule
+    
+    Arguments
+    ---------
+    gen_type : str
+        Type of method used to generate schedule.
+            'random' : randomly generated weeks consistent with constraints
+            'yahoo' : Yahoo default method. Uses the input ordering of team names
 
     Attributes
     ----------
@@ -30,7 +37,7 @@ class league_settings:
             1 : at least one week spacing between matchups between same teams
             n : at least n weeks spacing between matchups between same teams
     """
-    def __init__(self):
+    def __init__(self, gen_type='random'):
         # Define team names here
         self.team_names = [
             'Heros',
@@ -71,12 +78,17 @@ class league_settings:
             ]
         # Set schedule requierments here
         self.min_game_spacing = 1
-        self.gen_type = 'random'
+        self.gen_type = gen_type
 
 
 class fantasyschedule:
     """
     Class to generate a fantasy football league schedule
+    
+    Arguments
+    ---------
+    settings : league_settings class
+        Input class that allows a user to specifiy the details of their league
 
     Attributes
     ----------
