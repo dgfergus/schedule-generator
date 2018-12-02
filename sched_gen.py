@@ -1,382 +1,406 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun May 21 10:05:03 2017
+Edited 11/30/2018 - DGF
+Edited 12/01/2018 - DGF
 
-@author: david
+@author: David George Ferguson. All rights Reserved.
 """
-import numpy as np
 import random
+import warnings
+import numpy as np
 
 class league_settings:
+    """
+    Class that defines the settings for a league that are relevent for building a schedule
+
+    Attributes
+    ----------
+    team_names : list
+        list of strings that specify the teams names in the league
+    sched : list
+        list of length the number of weeks in the regular season. The elements
+        of the list are `weeks`. Weeks are lists of all the games that have
+        been assigned to that week. Games are sets that list the two
+        teams that are playing in the game.
+    min_game_spacing : int
+        The minimum allowable weeks between teams playing twice.
+        The higher min_game_spacing the more likely schedule generation fails
+            0 : matchups between same teams allowed in consecutive weeks
+            1 : at least one week spacing between matchups between same teams
+            n : at least n weeks spacing between matchups between same teams
+    """
     def __init__(self):
-        self.team_names = ['Heros','Jabronies','Truth','Chimps','Beatdoazers','Staffords','Roughnecks','Computerblue']
-        self.numweeks = 15
-        self.rivalweeks = [4,10]
-        self.RivalMatchups = [['Heros','Jabronies','Truth','Staffords','Chimps','Roughnecks','Beatdoazers','Computerblue'],
-                           ['Heros','Computerblue','Jabronies','Truth','Chimps','Beatdoazers','Staffords','Roughnecks']]
-        self.SBrematchWeek = 1 
+        # Define team names here
+        self.team_names = [
+            'Heros',
+            'Jabronies',
+            'Truth',
+            'Chimps',
+            'Beatdoazers',
+            'Hateful8',
+            'Roughnecks',
+            'Computerblue'
+            ]
+        # Set the number of weeks for the fantasy league's regular season
+        numweeks = 15
+        self.sched = numweeks*[[]]
+        # Set initial scheudle information here
+        SB_rematch_week = 1
+        rival_week1 = 5
+        rival_week2 = 11
+        SB_rematch_game = {'Truth', 'Jabronies'}
+        GB_rematch_game = {'Roughnecks', 'Hateful8'}
+        self.sched[SB_rematch_week-1] = [
+            SB_rematch_game,
+            GB_rematch_game
+            ]
+
+        self.sched[rival_week1-1] = [
+            {'Heros', 'Jabronies'},
+            {'Truth', 'Hateful8'},
+            {'Chimps', 'Roughnecks'},
+            {'Beatdoazers', 'Computerblue'}
+            ]
+
+        self.sched[rival_week2-1] = [
+            {'Heros', 'Computerblue'},
+            {'Jabronies', 'Truth'},
+            {'Chimps', 'Beatdoazers'},
+            {'Hateful8', 'Roughnecks'}
+            ]
+        # Set schedule requierments here
+        self.min_game_spacing = 1
+        self.gen_type = 'random'
+
 
 class fantasyschedule:
     """
     Class to generate a fantasy football league schedule
-    
+
     Attributes
     ----------
     team_names : list
-        List of strings for the team names
-    season_length : int
-        Length of regular season
+        List of strings that specify the team names
     sched : list
-        List of length `season_length`. Each element of the list is a list of the 
-        matchups that week. Matchups are represented by a set of team names.
-        
+        list of length the number of weeks in the regular season. The elements
+        of the list are `weeks`. Weeks are sets of all the games that have
+        been assigned to that week. Games are frozen sets that list the two
+        teams that are playing in the game.
+    min_game_spacing : int
+        Minimum spacing between games
+    max_num_matchups : int
+        Maximum number of times a matchup is allowed in the schedule.
+        Example:
+            Team 'A' can play any other team at most 3 times
+    max_num_matchups_that_have_max_num_games : int
+        Maximum times that a team can have a matchup that has the
+        maximum allowable number of matchups.
+        Example:
+            Team 'A' can play only 1 team 3 times. This will make sure that
+            team 'A' will play all other teams 2 times. If team 'A' played 2
+            teams three times then if would play one team only one time.
+
     Methods
     -------
-    weeks_have_duplicate_game(week1,week2):
-        Returns True if the two weeks have a duplicate game, else False.
-        
-    
-    
-    
-    
+    rand_genfullsched()
+        Method to generate a random scheudle
+    add_week_to_sched()
+        Method to add a week to the schedule
+    printsched()
+        Method to print the schedule
+    check_close_games(test_sched, week_index)
+        Method to check if the test schedule has games that are too close
+    check_num_matchups(test_sched)
+        Method to check that no matchup occurs too many times
     """
-    def __init__(self,basicsettings = basicsettings(), SBrematch = ['Truth','Jabronies'], GenFullSched = False):
-        if basicsettings is None:
-            raise('Must Set Basic Settings')
+    def __init__(self, settings=None):
+        if settings is None:
+            raise Exception('Must set league settings')
         else:
-            self.team_names = basicsettings.team_names
-            self.numweeks = basicsettings.numweeks
-            self.rivalweeks = basicsettings.rivalweeks
-            self.RivalMatchups = basicsettings.RivalMatchups
-            self.SBrematchWeek = basicsettings.SBrematchWeek
-            self.SBrematch = SBrematch
-            if GenFullSched == True:
-                self.genfullsched()
-                self.printsched()
-            
-    def buildmatchuplist(self):
-        matchuplist = []
-        for team1Index,team1 in enumerate(self.team_names):
-            for team2Index,team2 in enumerate(self.team_names):
-                if team2Index > team1Index:
-                    matchuplist.append(list(np.sort([team1,team2])))
-        self.matchups = matchuplist
-        return self.matchups
-    
-    def buildfullmatchuplist(self,numduplicates=3):
-        fullmatchuplist = []
-        for n in range(numduplicates):
-            for matchupVal in self.matchups:
-                matchupVal = np.sort(list(matchupVal))
-                strtoadd = ''
-                for stringval in matchupVal:
-                    strtoadd += stringval
-                strtoadd += str(n+1)
-                fullmatchuplist.append(strtoadd)
-        self.fullmatchuplist = fullmatchuplist
-        self.remainingmatchuplist = fullmatchuplist.copy()
+            self.gen_type = settings.gen_type
+            self.team_names = settings.team_names
+            self.sched = settings.sched
+            try:
+                self.min_game_spacing = settings.min_game_spacing
+            except:
+                self.min_game_spacing = 0
+            self.sched = [[frozenset(game) for game in week] for week in self.sched]
+            self.matchup_list = []
+            for team_index, team1 in enumerate(self.team_names):
+                for team2 in self.team_names[0:team_index]:
+                    self.matchup_list += [frozenset({team1, team2})]
 
-        return self.fullmatchuplist
-            
-    def genweek(self,weekstart = None):
-        if weekstart is None:
-            remainingTeams = self.team_names.copy()
-            week = []
-        else:
-            week = weekstart.copy()
-            remainingTeams = list(set(self.team_names)-set(week))
-        while len(remainingTeams) >0:
-            team = random.choice(remainingTeams)
-            week.append(team)
-            remainingTeams = list(set(remainingTeams)-set([team]))
-        return week
-    
-    def matchupsfromweek(self,week):
-        matchups = []
-        for index,team in enumerate(week):
-            if index%2 ==0:
-                match = [team]
+            num_games = len(self.sched)*len(self.team_names)//2
+            self.max_num_matchups = int(np.ceil(num_games/len(self.matchup_list)))
+            self.max_num_matchups_that_have_max_num_games = (
+                (len(self.sched)-1)/(len(self.team_names)-1) + 1
+                )
+            if self.gen_type is 'yahoo':
+                self.genfullsched_yahoo_default()
+            elif self.gen_type is 'random':
+                self.rand_genfullsched()
             else:
-                match.append(team)
-                matchups.append(set(match))
-        return matchups
-    
-    def matchupstringtoteams(self,fullmatchuplist = 'HerosTruth1'):
-        team1 = fullmatchuplist[0]
-        team2 = ''
-        isfirstteam = True
-        for charIndex,char in enumerate(fullmatchuplist):
-            if not(charIndex in [0,len(fullmatchuplist)-1]):
-                if str.istitle(char):
-                    isfirstteam = False
-                if isfirstteam:
-                    team1 += char
-                else:
-                    team2 += char
-            
-        return team1,team2    
-
-    def genweekfrommatchuplist(self,weekstart = None, printstatus = False):
-        if weekstart is None:
-            remainingTeams = self.team_names.copy()
-            week = []
-        else:
-            week = weekstart
-            remainingTeams = list(set(self.team_names)-set(week))
-        # sometimes you get stuck choosing the wrong matchups and need to try again
-        remainingTeamsIni = remainingTeams.copy()
-        weekini = week.copy()
-        count = 0
-        foundweek = False
-        while not(foundweek):
-            count += 1
-            if printstatus:
-                print('Trying to find week from matchuplist. Try '+str(count))
-            if count == 100:
-                raise Exception('probably cannot generate week from existing matchups')
-            # restart with new list of matchups to choose from
-            # and new remaining team list
-            remainingmatchupstochoosefrom = self.remainingmatchuplist.copy()
-            remainingTeams = remainingTeamsIni.copy()
-            week = weekini.copy()
-            while len(remainingTeams) >0 and len(remainingmatchupstochoosefrom) > 0:
-                randommatchup = random.choice(remainingmatchupstochoosefrom)
-                remainingmatchupstochoosefrom = list(set(remainingmatchupstochoosefrom)-set([randommatchup]))
-                team1,team2 = self.matchupstringtoteams(randommatchup)
-                if (team1 in remainingTeams) and (team2 in remainingTeams):
-                    remainingTeams = list(set(remainingTeams)-set([team1,team2]))
-                    week.append(team1)
-                    week.append(team2)
-                if len(week) == len(self.team_names):
-                    foundweek = True
-            
-        return week
-    
-    def removeweek(self,week):
-        numberofremainingteams = len(self.remainingmatchuplist)
-        for weekIndex,team in enumerate(week):
-            if weekIndex%2 == 1:
-                matchup = list(np.sort([team,week[weekIndex-1]]))
-                matchupstring = ''
-                for team in matchup:
-                    matchupstring += team
-                for fullmatchupstring in self.remainingmatchuplist:
-                    reducedmatchupstring = fullmatchupstring[0:(len(fullmatchupstring)-1)]
-                    if matchupstring == reducedmatchupstring:
-                        self.remainingmatchuplist = list(set(self.remainingmatchuplist) - set([fullmatchupstring]))
-                        break
-        if not(numberofremainingteams-int(round(len(week)/2)) == len(self.remainingmatchuplist)):
-            raise Exception('week was not in the remaining matchup list')
-            
-        # cycle through the remaining matchups
-        # check to see if either team has one opponents with three scheduled matchups against that opponent
-        # if so then count the total number of secheduled and remaining matchups for each other opponent
-        # (the scheduled matchups don't change and can be precalculated)
-        # if the total is three and remaining matchups is more than zero remove the matchup
-        schedmatchuparray = self.countmatchupsinschedule()
-        numtripmatch = self.countnumberoftriplematchups()
-
-        for matchup in self.remainingmatchuplist:
-            team1,team2 = self.matchupstringtoteams(matchup)
-            team1Index = self.team_names.index(team1)
-            team2Index = self.team_names.index(team2)
-            matchupavailarray = self.countremainingavailablematchups()
-            totalpotentialmatchups = schedmatchuparray[team1Index,team2Index] + matchupavailarray[team1Index,team2Index]
-            if (numtripmatch[team1Index] == 1) or (numtripmatch[team2Index] == 1):
-                if totalpotentialmatchups >= 3:
-                    self.remainingmatchuplist = list(set(self.remainingmatchuplist) - set([matchup]))
-            
-        return self.remainingmatchuplist
-                
-        
-    def initsched(self):
-        self.sched = []
-        for weekindex in range(self.numweeks):
-            self.sched.append([])
-        
-        # TBL Superbowl Rematch
-        for team in self.SBrematch:
-            self.sched[self.SBrematchWeek-1].append(team)
-        
-        # Extend to full week of matchups
-        self.sched[self.SBrematchWeek-1] = self.genweek(self.sched[self.SBrematchWeek-1])
-    
-        # rival weeks
-        for Rivalindex,weekIndex in enumerate(self.rivalweeks):
-            self.sched[weekIndex-1] = self.RivalMatchups[Rivalindex]
-            
-        return self.sched
-    
-    def printsched(self):
-        for index,week in enumerate(self.sched):
-            print('Week'+str(index+1))
-            weekout = []
-            for teamIndex,team in enumerate(week):
-                if teamIndex%2 ==1:
-                    weekout.append(team+' vs. '+week[teamIndex-1])
-            print(weekout)
-            
-    def weeks_have_duplicate_game(self,weekList1,weekList2):
-        DuplicateGame = False
-        for MatchUp1 in self.matchupsfromweek(weekList1):
-            for MatchUp2 in self.matchupsfromweek(weekList2):
-                if MatchUp1 == MatchUp2:
-                    DuplicateGame = True
-        return DuplicateGame
-    
-    def initialremovematchups(self):
-        for weekIndex,week in enumerate(self.sched):
-            if len(week) == len(self.team_names):
-                # remove games from matchuplist
-                self.removeweek(week) 
-        return self.remainingmatchuplist
-        
-    def countcompletedweeks(self):
-        count = 0
-        for week in self.sched:
-            if len(week) == len(self.team_names):
-                count += 1
-        return count
-    
-    
-    def add_week_to_sched(self,printstatus = False):
-        # Find first non-finished week
-        firstemptyweek = -1
-        for weekIndex,week in enumerate(self.sched):
-            if len(week) < len(self.team_names): # If the week is not full
-                if firstemptyweek == -1:
-                    firstemptyweek = int(weekIndex)
-
-        else:
-            if firstemptyweek == 0:
-                previousweek = []
-            else:
-                previousweek = self.sched[firstemptyweek-1].copy()
-            if weekIndex == (len(self.sched)-1):
-                nextweek = []
-            else:
-                nextweek = self.sched[firstemptyweek+1].copy()
-        gennewweek = True
-        count = 0
-        while (gennewweek) and (count < 100):
-            count += 1
-            randweek = self.genweekfrommatchuplist(printstatus=printstatus)
-            if printstatus:
-                print('try '+str(count)+' at generating a random week that works with the schedule:')
-                print(randweek)
-            previoussame = self.weeks_have_duplicate_game(randweek,previousweek)
-            nextsame = self.weeks_have_duplicate_game(randweek,nextweek)
-            
-            allhavelessthanthreetriplematchups = self.allnumtriplematchupslessthanthree(testweek = randweek)
-            
-            if not(previoussame) and not(nextsame) and allhavelessthanthreetriplematchups:
-                self.sched[firstemptyweek] = randweek
-                self.removeweek(randweek)
-                gennewweek = False
-                    
-        completeweeks = self.countcompletedweeks()
-        if completeweeks == len(self.sched):
-            if printstatus:
-                self.printsched()
-        else:
-            if printstatus:
-                print('The number of complete weeks is '+str(completeweeks))
-                print('The number left to fill is '+str(len(self.sched)-completeweeks))
-                print('The number of remaining matchups to choose from is '+str(len(self.remainingmatchuplist)))
-                print('Completed Matchup array then available matchup array.')
-                print(self.countmatchupsinschedule())
-                print(self.countremainingavailablematchups())
-                self.printsched()
-        
-        return completeweeks
-        
-    def genfullsched(self,printstatus = False):
-        retrycount = 0
-        iscomplete = False
-        while (retrycount < 100) and not(iscomplete):
-            print('Try number '+str(retrycount)+' at generating full schedule.')
-            retrycount += 1
-            self.buildmatchuplist()
-            self.buildfullmatchuplist()
-            self.initsched()
-            self.initialremovematchups()
-            completeweeks = self.countcompletedweeks()
-            count = 0
-            while (completeweeks < len(self.sched)) and count < 20:
-                count += 1
-                self.add_week_to_sched(printstatus = printstatus)
-                completeweeks = self.countcompletedweeks()
-            if completeweeks == len(self.sched):
-                  iscomplete = True
-        if printstatus:
+                raise Exception("Schedule generation type not recognized")
             self.printsched()
-        return
-        
-        
-    def countmatchupsinschedule(self,testweek = None):
-        
-        matchupcountarray = np.zeros([len(self.team_names),len(self.team_names)],dtype = 'int')
-        
-        for teamIndex1, teamname1 in enumerate(self.team_names):
-            for teamIndex2, teamname2 in enumerate(self.team_names):
-                for week in self.sched:
-                    for mu in self.matchupsfromweek(week):
-                        if set([teamname1,teamname2]) == mu:
-                                matchupcountarray[teamIndex1,teamIndex2] += 1
-                                
-        if not(testweek is None):
-            mups = self.matchupsfromweek(testweek)
-            for mu in mups:
-                for teamIndex1, team1name in enumerate(self.team_names):
-                    for teamIndex2, team2name in enumerate(self.team_names):
-                        if set([teamname1,teamname2]) == mu:
-                            matchupcountarray[teamIndex1,teamIndex2] += 1
-                        
-        return matchupcountarray
-    
-    def countremainingavailablematchups(self,testweek = None):
-        
-        matchupcountarray = np.zeros([len(self.team_names),len(self.team_names)],dtype = 'int')
-        
-        for teamIndex, teamname in enumerate(self.team_names):
-            for remainmatch in self.remainingmatchuplist:
-                team1,team2 = self.matchupstringtoteams(remainmatch)
-                if teamname in set([team1,team2]):
-                    for otherteamIndex,otherteam in enumerate(self.team_names):
-                        if otherteam in set(set([team1,team2])-set([teamname])):
-                            matchupcountarray[teamIndex,otherteamIndex] += 1
-                            
-        if not(testweek is None):
-            mups = self.matchupsfromweek(testweek)
-            for mu in mups:
-                for teamIndex1, team1name in enumerate(self.team_names):
-                    for teamIndex2, team2name in enumerate(self.team_names):
-                        if team1name in mu:
-                            if (team2name in mu) and not(team1name == team2name):
-                                matchupcountarray[teamIndex1,teamIndex2] += -1
-                        
-        return matchupcountarray
-    
-    def countnumberoftriplematchups(self,testweek = None):
-        mupcountarray = self.countmatchupsinschedule(testweek=testweek)
-        numtriplematchups = []
-        for matchupsarray in mupcountarray:
-            numtriple = 0
-            for mupcount in matchupsarray:
-                if mupcount == 3:
-                    numtriple += 1
-            numtriplematchups.append(numtriple)
-            
-        return numtriplematchups
 
-    def allnumtriplematchupslessthanthree(self,testweek = None):
-        triplematchupsarelessthanthree = True
-        for numtripmatch in self.countnumberoftriplematchups(testweek=testweek):
-            if numtripmatch>3:
-                triplematchupsarelessthanthree = False
-        return triplematchupsarelessthanthree
-        
-            
-          
-        
-        
+    def genfullsched_yahoo_default(self):
+        """
+        Yahoo default method to generate league schedule
+        """
+        # TODO check if Yahoo default is consistent with input schedule
+        warnings.warn("Input schedule not used")
+        num_weeks = len(self.sched)
+        self.sched = num_weeks*[[]]
+
+        for week_index in range(len(self.sched)):
+            temp_week = []
+            for team1_index, team1 in enumerate(self.team_names[0:-1]):
+                team2_index = (-team1_index + week_index + 1) % (len(self.team_names)-1)
+                if team2_index == team1_index:
+                    team2 = self.team_names[-1]
+                else:
+                    team2 = self.team_names[team2_index]
+                game = frozenset({team1, team2})
+                if game not in temp_week:
+                    temp_week.append(game)
+
+            self.sched[week_index] = temp_week
+
+    def rand_genfullsched(self):
+        """
+        Randomly generates the full schedule using the input schedule as a starting point.
+
+        Notes
+        -----
+        If the schedule is not complete but the method add_week_to_schedule fails
+        then the whole process starts over with in input shedule.
+        This is tried up to 100 times at which point an excpetion is passed.
+        """
+        retrycount = 0
+        complete_weeks = [len(week) for week in self.sched].count(len(self.team_names)//2)
+        initial_sched = self.sched.copy()
+        while retrycount < 100:
+            # Schedule is re-initialized to the input schedule
+            self.sched = initial_sched.copy()
+
+            # start with the assumption that it is possible to find new weeks
+            cant_find_new_week = False
+            while complete_weeks < len(self.sched):
+                week_pass = self.add_week_to_sched()
+                if not week_pass:
+                    cant_find_new_week = True
+                    break
+                complete_weeks = [len(week) for week in self.sched].count(len(self.team_names)//2)
+            if cant_find_new_week:
+                retrycount += 1
+                break
+            if complete_weeks == len(self.sched):
+                break
+        if retrycount == 100:
+            self.printsched()
+            raise Exception("Could not generate schedule given constratins and input schedule")
+        return
+
+    def add_week_to_sched(self):
+        """
+        Adds a week of games to the sechdule that satisfies all scheudle constraints.
+
+        Returns
+        -------
+        week_pass : bool
+            True : If a random week was found that satisfies all constraints.
+            False : If after 100 tries no week was found.
+
+        Notes
+        -----
+        Finds the first non-complete week in the schedule and completes it with
+        random a randomely generated list of games creating a test schedule.
+        Then checks that the test schedule passes all the schedule constraints.
+        If all constraints pass then the schedule is updated with the test_schedule
+        If a constrain is not satisfied a new random week is generated.
+        This is attempted 100 times after which an excpetion is passed.
+        """
+        week_index = [(len(week) < (len(self.team_names)//2)) for week in self.sched].index(True)
+        week_as_list = [team for game in self.sched[week_index] for team in list(game)]
+        count = 0
+        week_pass = False
+        while (not week_pass) and (count < 100):
+            count += 1
+            # Find first non-finished week
+
+            # generate randum week
+            remaining_teams = list(set(self.team_names) -set(week_as_list))
+            test_week_list = (
+                week_as_list
+                +random.sample(remaining_teams, len(remaining_teams))
+                )
+            test_week = [
+                frozenset({test_week_list[2*index], test_week_list[2*index+1]})
+                for index in range(len(self.team_names)//2)
+                ]
+            test_sched = self.sched.copy()
+            test_sched[week_index] = test_week
+            # test if new schedule meets constraints
+            pass_tests = []
+            pass_tests.append(self.check_close_games(test_sched, week_index))
+            pass_tests.append(self.check_num_matchups(test_sched))
+            if False not in pass_tests:
+                week_pass = True
+            if count == 100:
+                self.printsched()
+                print(
+                    "Could not generate week "
+                    +str(week_index)
+                    +" given constratins and input schedule"
+                    )
+        if week_pass:
+            self.sched[week_index] = test_week
+        return week_pass
+
+    def printsched(self):
+        """
+        Prints the schedule to screen.
+        """
+        for index, week in enumerate(self.sched):
+            print('Week'+str(index+1))
+            weekout = ''
+            for game in week:
+                game = list(game)
+                weekout += game[0]+' vs. '+game[1]+' | '
+            print(weekout)
+
+    def check_close_games(self, test_sched=None, week_index=None):
+        """
+        Check to make sure that week has no close games in neigboring weeks
+
+        Arguments
+        ---------
+        test_sched : list
+            list representing test schedule
+        week_index : int
+            Index of week to check that there are no other games in neighborning weeks
+            If None then check all weeks
+
+        Returns
+        -------
+        pass_check : bool
+            Boolen condition of whether the close game check was passed.
+
+        Notes
+        -----
+        self.min_game_spacing sets the minimum allowable space between games.
+        self.min_game_spacing = 0 allows games in consecutive weeks
+        """
+        #Set initial pass_check to True
+
+        pass_check = True
+        if week_index is None:
+            weeks_to_check = test_sched.copy()
+        else:
+            weeks_to_check = [test_sched[week_index]]
+
+        # loop over all weeks to check if there are close games
+        for week in weeks_to_check:
+            # Build list of week indexes that are close but not before the
+            # start or after the end of the season
+            neighbor_week_index_list = [
+                index
+                for index in range(
+                    week_index-self.min_game_spacing,
+                    week_index+self.min_game_spacing+1
+                    )
+                if ((index > -1) and (index < len(test_sched)) and (index is not week_index))
+                ]
+            for neighbor_week_index in neighbor_week_index_list:
+                check_week = test_sched[neighbor_week_index]
+                # Build set intersection of games in weeks.
+                # If intersection is non-empty then there is a common game
+                if len(set(check_week) & set(week)) > 0:
+                    pass_check = False
+        return pass_check
+
+    def check_num_matchups(self, test_sched=None):
+        """
+        Check that the number of matchups between teams is below appropriate amount
+
+        Arguments
+        ---------
+        test_sched : list
+            list representing test schedule
+
+        Returns
+        -------
+        pass_check : bool
+            Boolen condition of whether the num matchups check was passed.
+
+        Notes
+        -----
+        If the number of weeks in the schedule is not evenly devisable by the
+        number of opponents then teams will play some opponents one game more.
+        The maximum times that a team plays an opponent is `self.max_num_matchups`.
+        The number of opponents that a team plays the maximum number of times is
+        `self.max_num_matchups_that_have_max_num_games`. This method checks that
+        both max_num_matchups and max_num_matchups_that_have_max_num_games
+        are not violated.
+        """
+        ###############
+        # check the max_num_matchups condition
+        ###############
+        num_games_for_each_matchup = []
+        for mu in self.matchup_list:
+            #calculate number of games for each matchup
+            num_games_for_each_matchup.append(
+                [game for week in test_sched for game in week].count(mu)
+                )
+        # save the max_num_matchups condition
+        pass_check_max_num_matchups = (max(num_games_for_each_matchup) <= self.max_num_matchups)
+
+        ################
+        # check the max_num_matchups_that_have_max_num_games condition for each team
+        ################
+        # list for each team wheter they have too many matchups with the maximum
+        # number of games
+        bool_team_max_num_matchup_okay = []
+        for team in self.team_names:
+            boolen_list_of_matchup_at_max = []
+            for matchup_index, matchup in enumerate(self.matchup_list):
+                # matchup at maximum
+                condition1 = (
+                    num_games_for_each_matchup[matchup_index]
+                    == self.max_num_matchups
+                    )
+                # team in matchup
+                condition2 = (team in matchup)
+                # team in matchup and matchup at maximum
+                boolen_list_of_matchup_at_max.append(
+                    condition1 and condition2
+                    )
+            # count number of matchups at maximum for a given team
+            num_max_matchups_for_team = (
+                np.sum([int(b) for b in boolen_list_of_matchup_at_max])
+                )
+            # add to list checking that matchups at max okay for each team
+            bool_team_max_num_matchup_okay.append(
+                num_max_matchups_for_team
+                <= self.max_num_matchups_that_have_max_num_games
+                )
+
+# More compact but less readable code that does the above calculation
+#        for team in self.team_names:
+#            num_max_matchups_for_team.append(
+#                    np.sum([
+#                            int(
+#                                    (num_games_for_each_matchup[matchup_index]
+#                                    == self.max_num_matchups)
+#                                    and
+#                                    (team in matchup)
+#                                    )
+#                            for matchup_index,matchup in enumerate(self.matchup_list)
+#                            ]) <= self.max_num_matchups_that_have_max_num_games
+#                            )
+
+        pass_num_max_matchups = (False not in bool_team_max_num_matchup_okay)
+        pass_check = pass_check_max_num_matchups and pass_num_max_matchups
+
+        return pass_check
