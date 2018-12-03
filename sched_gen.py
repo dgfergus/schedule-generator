@@ -13,7 +13,7 @@ import numpy as np
 class league_settings:
     """
     Class that defines the settings for a league that are relevent for building a schedule
-    
+
     Arguments
     ---------
     gen_type : str
@@ -84,7 +84,7 @@ class league_settings:
 class fantasyschedule:
     """
     Class to generate a fantasy football league schedule
-    
+
     Arguments
     ---------
     settings : league_settings class
@@ -146,7 +146,7 @@ class fantasyschedule:
             num_games = len(self.sched)*len(self.team_names)//2
             self.max_num_matchups = int(np.ceil(num_games/len(self.matchup_list)))
             self.max_num_matchups_that_have_max_num_games = (
-                (len(self.sched)-1)/(len(self.team_names)-1) + 1
+                (len(self.sched)-1)%(len(self.team_names)-1) + 1
                 )
             if self.gen_type is 'yahoo':
                 self.genfullsched_yahoo_default()
@@ -200,15 +200,14 @@ class fantasyschedule:
             cant_find_new_week = False
             while complete_weeks < len(self.sched):
                 week_pass = self.add_week_to_sched()
-                if not week_pass:
-                    cant_find_new_week = True
-                    break
                 complete_weeks = [len(week) for week in self.sched].count(len(self.team_names)//2)
-            if cant_find_new_week:
-                retrycount += 1
-                break
+                if not week_pass:
+                    break
             if complete_weeks == len(self.sched):
                 break
+            if not week_pass:
+                retrycount += 1
+                continue
         if retrycount == 100:
             self.printsched()
             raise Exception("Could not generate schedule given constratins and input schedule")
@@ -259,13 +258,6 @@ class fantasyschedule:
             pass_tests.append(self.check_num_matchups(test_sched))
             if False not in pass_tests:
                 week_pass = True
-            if count == 100:
-                self.printsched()
-                print(
-                    "Could not generate week "
-                    +str(week_index)
-                    +" given constratins and input schedule"
-                    )
         if week_pass:
             self.sched[week_index] = test_week
         return week_pass
@@ -416,3 +408,40 @@ class fantasyschedule:
         pass_check = pass_check_max_num_matchups and pass_num_max_matchups
 
         return pass_check
+
+    def print_num_matchups(self):
+        num_games_for_each_matchup = [
+            [game for week in self.sched for game in week].count(mu)
+            for mu in self.matchup_list
+            ]
+        
+        column_width = (max([len(name) for name in self.team_names])+1)
+        table_width = column_width*(len(self.team_names) + 1)
+
+        table_title_string = ''.join(
+            ['opponent'+(column_width-len('opponent')-1)*' '+'|']
+            +[
+                team.center(column_width-1)+'|'
+                for index, team in enumerate(self.team_names)
+                ]
+           )
+
+        print(table_title_string)
+        print(table_width*'-')
+        num_matchups = np.zeros([len(self.team_names),len(self.team_names)],
+                                 dtype='int')
+        for index1, team1 in enumerate(self.team_names):
+            for index2, team2 in enumerate(self.team_names):
+                if not team1 == team2:
+                    num_matchups[index1, index2] = (
+                        [game for week in self.sched for game in week].count(
+                            frozenset({team1,team2}))
+                        )
+
+        for index1, team1 in enumerate(self.team_names):
+            string_to_print = team1 + (column_width - len(team1) - 1)*' '+'|'
+            for index2, team2 in enumerate(self.team_names):
+                string_to_print += str(num_matchups[index1,index2]).center(
+                        column_width-1)
+                string_to_print += '|'
+            print(string_to_print)
