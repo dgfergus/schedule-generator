@@ -20,64 +20,50 @@ class league_settings:
         Type of method used to generate schedule.
             'random' : randomly generated weeks consistent with constraints
             'yahoo' : Yahoo default method. Uses the input ordering of team names
-
-    Attributes
-    ----------
     team_names : list
         list of strings that specify the teams names in the league
-    sched : list
+    init_sched : list
         list of length the number of weeks in the regular season. The elements
         of the list are `weeks`. Weeks are lists of all the games that have
         been assigned to that week. Games are sets that list the two
-        teams that are playing in the game.
+        teams that are playing in the game. init_sched are the inital games
+        that the user has specified they want in the season.
     min_game_spacing : int
         The minimum allowable weeks between teams playing twice.
         The higher min_game_spacing the more likely schedule generation fails
             0 : matchups between same teams allowed in consecutive weeks
             1 : at least one week spacing between matchups between same teams
             n : at least n weeks spacing between matchups between same teams
+
+
+
     """
-    def __init__(self, gen_type='random'):
+    def __init__(self, team_names = None, num_weeks = None, init_sched = None, gen_type='random', min_game_spacing = 1):
         # Define team names here
-        self.team_names = [
-            'Heros',
-            'Jabronies',
-            'Truth',
-            'Chimps',
-            'Beatdoazers',
-            'Hateful8',
-            'Roughnecks',
-            'Computerblue'
-            ]
+        if team_names is None:
+            self.team_names = [
+                'Heros',
+                'Jabronies',
+                'Truth',
+                'Chimps',
+                'Beatdoazers',
+                'Hateful8',
+                'Roughnecks',
+                'Computerblue'
+                ]
+        else:
+            self.team_names = team_names
         # Set the number of weeks for the fantasy league's regular season
-        numweeks = 15
-        self.sched = numweeks*[[]]
-        # Set initial scheudle information here
-        SB_rematch_week = 1
-        rival_week1 = 5
-        rival_week2 = 11
-        SB_rematch_game = {'Truth', 'Jabronies'}
-        GB_rematch_game = {'Roughnecks', 'Hateful8'}
-        self.sched[SB_rematch_week-1] = [
-            SB_rematch_game,
-            GB_rematch_game
-            ]
-
-        self.sched[rival_week1-1] = [
-            {'Heros', 'Jabronies'},
-            {'Truth', 'Hateful8'},
-            {'Chimps', 'Roughnecks'},
-            {'Beatdoazers', 'Computerblue'}
-            ]
-
-        self.sched[rival_week2-1] = [
-            {'Heros', 'Computerblue'},
-            {'Jabronies', 'Truth'},
-            {'Chimps', 'Beatdoazers'},
-            {'Hateful8', 'Roughnecks'}
-            ]
+        if init_sched is None:
+            if num_weeks is None:
+                self.sched = 15*[[]]
+            else:
+                self.sched = num_weeks*[[]]
+        else:
+            self.sched = init_sched
+                
         # Set schedule requierments here
-        self.min_game_spacing = 1
+        self.min_game_spacing = min_game_spacing
         self.gen_type = gen_type
 
 
@@ -161,9 +147,10 @@ class fantasyschedule:
         Yahoo default method to generate league schedule
         """
         # TODO check if Yahoo default is consistent with input schedule
-        warnings.warn("Input schedule not used")
-        num_weeks = len(self.sched)
-        self.sched = num_weeks*[[]]
+        if not np.sum([len(week) for week in self.sched]) == 0:
+            warnings.warn("Input schedule not used")
+            num_weeks = len(self.sched)
+            self.sched = num_weeks*[[]]
 
         for week_index in range(len(self.sched)):
             temp_week = []
@@ -273,6 +260,7 @@ class fantasyschedule:
                 game = list(game)
                 weekout += game[0]+' vs. '+game[1]+' | '
             print(weekout)
+        print()
 
     def check_close_games(self, test_sched=None, week_index=None):
         """
