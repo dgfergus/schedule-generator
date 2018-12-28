@@ -3,6 +3,7 @@
 Created on Sun May 21 10:05:03 2017
 Edited 11/30/2018 - DGF
 Edited 12/01/2018 - DGF
+Edited 12/28/2018 - DGF
 
 @author: David George Ferguson. All rights Reserved.
 """
@@ -12,44 +13,45 @@ import numpy as np
 
 class league_settings:
     """
-    Class that defines the settings for a league that are relevent for building a schedule
-
+    Class that defines the settings for a league that are relevant for building a schedule
+    
     Arguments
     ---------
+    team_names : list
+        list of strings that specify the name of the teams in the league.
+        Defaults to TBL
     gen_type : str
         Type of method used to generate schedule.
-            'random' : randomly generated weeks consistent with constraints
+            'random' : Randomly generated weeks consistent with constraints
             'yahoo' : Yahoo default method. Uses the input ordering of team names
-    team_names : list
-        list of strings that specify the teams names in the league
+    num_weeks : int
+        Number of weeks in the regular season of the fantasy league
     init_sched : list
-        list of length the number of weeks in the regular season. The elements
-        of the list are `weeks`. Weeks are lists of all the games that have
-        been assigned to that week. Games are sets that list the two
-        teams that are playing in the game. init_sched are the inital games
+        List of length equal to the number of weeks in the regular season. The elements
+        of the list are `weeks`. Weeks are lists of all the games that are played
+        in that week. Games are sets with two elements that are the two
+        teams playing in the game. init_sched can be initialized with initial games
         that the user has specified they want in the season.
+        If init_sched is specified num_weeks is ignored.
     min_game_spacing : int
         The minimum allowable weeks between teams playing twice.
-        The higher min_game_spacing the more likely schedule generation fails
+        The higher min_game_spacing is the more likely schedule generation will fail
             0 : matchups between same teams allowed in consecutive weeks
             1 : at least one week spacing between matchups between same teams
             n : at least n weeks spacing between matchups between same teams
-
-
-
     """
     def __init__(self, team_names = None, num_weeks = None, init_sched = None, gen_type='random', min_game_spacing = 1):
-        # Define team names here
+        # Define team names here. If using the yahoo method the rivalry number will specify who you play first.
         if team_names is None:
             self.team_names = [
-                'Heros',
-                'Jabronies',
-                'Truth',
-                'Chimps',
-                'Beatdoazers',
-                'Hateful8',
-                'Roughnecks',
-                'Computerblue'
+                'Heros',        # rivalry 1
+                'Jabronies',    # rivalry 1
+                'Truth',        # rivalry 2
+                'Chimps',       # rivalry 3
+                'Beatdoazers',  # rivalry 4
+                'Computerblue', # rivalry 3
+                'Hateful8',     # rivalry 2
+                'Roughnecks'    # rivalry 4
                 ]
         else:
             self.team_names = team_names
@@ -70,12 +72,11 @@ class league_settings:
 class fantasyschedule:
     """
     Class to generate a fantasy football league schedule
-
     Arguments
     ---------
     settings : league_settings class
-        Input class that allows a user to specifiy the details of their league
-
+        Input class that allows a user to specify the details of their league
+        
     Attributes
     ----------
     team_names : list
@@ -97,12 +98,12 @@ class fantasyschedule:
         Example:
             Team 'A' can play only 1 team 3 times. This will make sure that
             team 'A' will play all other teams 2 times. If team 'A' played 2
-            teams three times then if would play one team only one time.
-
+            teams three times then they would have to play a team only once.
+            
     Methods
     -------
     rand_genfullsched()
-        Method to generate a random scheudle
+        Method to generate a random schedule
     add_week_to_sched()
         Method to add a week to the schedule
     printsched()
@@ -112,6 +113,7 @@ class fantasyschedule:
     check_num_matchups(test_sched)
         Method to check that no matchup occurs too many times
     """
+    
     def __init__(self, settings=None):
         if settings is None:
             raise Exception('Must set league settings')
@@ -173,7 +175,7 @@ class fantasyschedule:
         Notes
         -----
         If the schedule is not complete but the method add_week_to_schedule fails
-        then the whole process starts over with in input shedule.
+        then the whole process starts over with the initial input shedule.
         This is tried up to 100 times at which point an excpetion is passed.
         """
         retrycount = 0
@@ -202,22 +204,21 @@ class fantasyschedule:
 
     def add_week_to_sched(self):
         """
-        Adds a week of games to the sechdule that satisfies all scheudle constraints.
-
+        Adds a week of games to the schedule that satisfies all schedule constraints.
         Returns
         -------
         week_pass : bool
             True : If a random week was found that satisfies all constraints.
             False : If after 100 tries no week was found.
-
+            
         Notes
         -----
         Finds the first non-complete week in the schedule and completes it with
-        random a randomely generated list of games creating a test schedule.
+        random a randomly generated list of games creating a test schedule.
         Then checks that the test schedule passes all the schedule constraints.
         If all constraints pass then the schedule is updated with the test_schedule
         If a constrain is not satisfied a new random week is generated.
-        This is attempted 100 times after which an excpetion is passed.
+        This is attempted 100 times after which an exception is passed.
         """
         week_index = [(len(week) < (len(self.team_names)//2)) for week in self.sched].index(True)
         week_as_list = [team for game in self.sched[week_index] for team in list(game)]
@@ -253,37 +254,55 @@ class fantasyschedule:
         """
         Prints the schedule to screen.
         """
-        for index, week in enumerate(self.sched):
-            print('Week'+str(index+1))
-            weekout = ''
-            for game in week:
-                game = list(game)
-                weekout += game[0]+' vs. '+game[1]+' | '
-            print(weekout)
+        
+        column_width = (max([len(name) for name in self.team_names])+1)
+        table_width = column_width*(len(self.team_names) + 1)
+
+        table_title_string = ''.join(
+            ['week'+(column_width-len('week')-1)*' '+'|']
+            +[
+                team.center(column_width-1)+'|'
+                for index, team in enumerate(self.team_names)
+                ]
+           )
+
+        print(table_title_string)
+        print(table_width*'-')
+
+        for index1, week in enumerate(self.sched):
+            week_str = 'week'+str(index1)
+            string_to_print = week_str + (column_width - len(week_str) - 1)*' '+'|'
+            for index2, team2 in enumerate(self.team_names):
+                for mu in week:
+                    if team2 in mu:
+                        team1 = list(set(mu)-{team2})[0]
+                        string_to_print += team1.center(
+                                column_width-1)
+                string_to_print += '|'
+            print(string_to_print)
+        
         print()
 
     def check_close_games(self, test_sched=None, week_index=None):
         """
-        Check to make sure that week has no close games in neigboring weeks
-
+        Check to make sure that week has no close games in neighboring weeks
         Arguments
         ---------
         test_sched : list
             list representing test schedule
         week_index : int
-            Index of week to check that there are no other games in neighborning weeks
+            Index of week to check that there are no other games in neighboring weeks
             If None then check all weeks
-
         Returns
         -------
         pass_check : bool
-            Boolen condition of whether the close game check was passed.
-
+            Boolean condition of whether the close game check was passed.
         Notes
         -----
         self.min_game_spacing sets the minimum allowable space between games.
         self.min_game_spacing = 0 allows games in consecutive weeks
         """
+        
         #Set initial pass_check to True
 
         pass_check = True
@@ -315,17 +334,14 @@ class fantasyschedule:
     def check_num_matchups(self, test_sched=None):
         """
         Check that the number of matchups between teams is below appropriate amount
-
         Arguments
         ---------
         test_sched : list
             list representing test schedule
-
         Returns
         -------
         pass_check : bool
             Boolen condition of whether the num matchups check was passed.
-
         Notes
         -----
         If the number of weeks in the schedule is not evenly devisable by the
@@ -377,20 +393,6 @@ class fantasyschedule:
                 num_max_matchups_for_team
                 <= self.max_num_matchups_that_have_max_num_games
                 )
-
-# More compact but less readable code that does the above calculation
-#        for team in self.team_names:
-#            num_max_matchups_for_team.append(
-#                    np.sum([
-#                            int(
-#                                    (num_games_for_each_matchup[matchup_index]
-#                                    == self.max_num_matchups)
-#                                    and
-#                                    (team in matchup)
-#                                    )
-#                            for matchup_index,matchup in enumerate(self.matchup_list)
-#                            ]) <= self.max_num_matchups_that_have_max_num_games
-#                            )
 
         pass_num_max_matchups = (False not in bool_team_max_num_matchup_okay)
         pass_check = pass_check_max_num_matchups and pass_num_max_matchups
