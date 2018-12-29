@@ -270,7 +270,7 @@ class fantasyschedule:
         print(table_width*'-')
 
         for index1, week in enumerate(self.sched):
-            week_str = 'week'+str(index1)
+            week_str = 'week'+str(index1+1)
             string_to_print = week_str + (column_width - len(week_str) - 1)*' '+'|'
             for index2, team2 in enumerate(self.team_names):
                 for mu in week:
