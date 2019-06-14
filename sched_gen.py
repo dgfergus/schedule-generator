@@ -4,6 +4,7 @@ Created on Sun May 21 10:05:03 2017
 Edited 11/30/2018 - DGF
 Edited 12/01/2018 - DGF
 Edited 12/28/2018 - DGF
+Edited 06/14/2019 - DGF
 
 @author: David George Ferguson. All rights Reserved.
 """
@@ -14,7 +15,7 @@ import numpy as np
 class league_settings:
     """
     Class that defines the settings for a league that are relevant for building a schedule
-    
+
     Arguments
     ---------
     team_names : list
@@ -40,7 +41,8 @@ class league_settings:
             1 : at least one week spacing between matchups between same teams
             n : at least n weeks spacing between matchups between same teams
     """
-    def __init__(self, team_names = None, num_weeks = None, init_sched = None, gen_type='random', min_game_spacing = 1):
+    def __init__(self, team_names=None, num_weeks=None, init_sched=None, 
+                 gen_type='random', min_game_spacing=1):
         # Define team names here. If using the yahoo method the rivalry number will specify who you play first.
         if team_names is None:
             self.team_names = [
@@ -72,6 +74,7 @@ class league_settings:
 class fantasyschedule:
     """
     Class to generate a fantasy football league schedule
+    
     Arguments
     ---------
     settings : league_settings class
@@ -82,18 +85,20 @@ class fantasyschedule:
     team_names : list
         List of strings that specify the team names
     sched : list
-        list of length the number of weeks in the regular season. The elements
+        List of length the number of weeks in the regular season. The elements
         of the list are `weeks`. Weeks are sets of all the games that have
         been assigned to that week. Games are frozen sets that list the two
         teams that are playing in the game.
+    self.num_games : int
+        Number of games in the schedule
     min_game_spacing : int
         Minimum spacing between games
     max_num_matchups : int
         Maximum number of times a matchup is allowed in the schedule.
         Example:
             Team 'A' can play any other team at most 3 times
-    max_num_matchups_that_have_max_num_games : int
-        Maximum times that a team can have a matchup that has the
+    num_matchups_that_have_max_num_games : int
+        Number of times that a team has a matchup that has the
         maximum allowable number of matchups.
         Example:
             Team 'A' can play only 1 team 3 times. This will make sure that
@@ -131,11 +136,10 @@ class fantasyschedule:
                 for team2 in self.team_names[0:team_index]:
                     self.matchup_list += [frozenset({team1, team2})]
 
-            num_games = len(self.sched)*len(self.team_names)//2
-            self.max_num_matchups = int(np.ceil(num_games/len(self.matchup_list)))
-            self.max_num_matchups_that_have_max_num_games = (
-                (len(self.sched)-1)%(len(self.team_names)-1) + 1
-                )
+            self.num_games = len(self.sched)*len(self.team_names)//2
+            
+            self._calc_max_num_matchups()
+            
             if self.gen_type is 'yahoo':
                 self.genfullsched_yahoo_default()
             elif self.gen_type is 'random':
@@ -143,6 +147,30 @@ class fantasyschedule:
             else:
                 raise Exception("Schedule generation type not recognized")
             self.printsched()
+            
+    def _calc_max_num_matchups(self):
+        """
+        Calculate the maximum number of times a matchup is allowed 
+        in the schedule and the number of matchups that have max num games
+        """
+        num_weeks = len(self.sched)
+        
+        # TODO: Generalize for division play
+        num_matchups_per_team = len(self.team_names) - 1
+        
+        min_num_matchups = num_weeks//num_matchups_per_team
+        
+        num_matchups_with_additional_game = num_weeks%num_matchups_per_team
+        
+        self.max_num_matchups = min_num_matchups + 1*(num_matchups_with_additional_game > 0)
+        
+        self.num_matchups_that_have_max_num_games = (
+                num_matchups_with_additional_game
+                +num_matchups_per_team*(num_matchups_with_additional_game == 0)
+                )
+
+        return self.max_num_matchups, self.num_matchups_that_have_max_num_games
+        
 
     def genfullsched_yahoo_default(self):
         """
@@ -185,8 +213,6 @@ class fantasyschedule:
             # Schedule is re-initialized to the input schedule
             self.sched = initial_sched.copy()
 
-            # start with the assumption that it is possible to find new weeks
-            cant_find_new_week = False
             while complete_weeks < len(self.sched):
                 week_pass = self.add_week_to_sched()
                 complete_weeks = [len(week) for week in self.sched].count(len(self.team_names)//2)
@@ -348,8 +374,8 @@ class fantasyschedule:
         number of opponents then teams will play some opponents one game more.
         The maximum times that a team plays an opponent is `self.max_num_matchups`.
         The number of opponents that a team plays the maximum number of times is
-        `self.max_num_matchups_that_have_max_num_games`. This method checks that
-        both max_num_matchups and max_num_matchups_that_have_max_num_games
+        `self.num_matchups_that_have_max_num_games`. This method checks that
+        both max_num_matchups and num_matchups_that_have_max_num_games
         are not violated.
         """
         ###############
@@ -365,7 +391,7 @@ class fantasyschedule:
         pass_check_max_num_matchups = (max(num_games_for_each_matchup) <= self.max_num_matchups)
 
         ################
-        # check the max_num_matchups_that_have_max_num_games condition for each team
+        # check the num_matchups_that_have_max_num_games condition for each team
         ################
         # list for each team wheter they have too many matchups with the maximum
         # number of games
@@ -391,7 +417,7 @@ class fantasyschedule:
             # add to list checking that matchups at max okay for each team
             bool_team_max_num_matchup_okay.append(
                 num_max_matchups_for_team
-                <= self.max_num_matchups_that_have_max_num_games
+                <= self.num_matchups_that_have_max_num_games
                 )
 
         pass_num_max_matchups = (False not in bool_team_max_num_matchup_okay)
